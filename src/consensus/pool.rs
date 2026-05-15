@@ -234,7 +234,7 @@ impl PoolImpl {
                 self.handle_finalization(finalization_event).await;
                 self.prune();
             }
-            Cert::Final(f_cert) => {
+            Cert::Final(_) => {
                 info!("slow finalized slot {slot}");
                 let finalization_event = self.finality_tracker.mark_finalized(slot);
                 self.handle_finalization(finalization_event).await;

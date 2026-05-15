@@ -1,6 +1,13 @@
 // Copyright (c) Anza Technology, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+
+/*
+GORAN DEVETAK: this code was modified in order to put custom validator nodes in the simulation.
+Specifically now the configs accepts a custom stake, and a custom FaultMode, which specifies
+if a node is honest, offline or malicious(and if so in which way).
+ */
+
 use std::borrow::Cow;
 use std::fs::File;
 use std::io::Read;
@@ -30,14 +37,36 @@ use rand::rng;
 use serde::{Deserialize, Serialize};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt};
 
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+struct ValidatorInput {
+    id: u64,
+    pub_key: String,
+    stake: u64,
+    fault_mode: FaultMode,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum FaultMode {
+    Honest,
+    Offline,
+    NoVote,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct ConfigFile {
     id: u64,
     identity_key: SecretKey,
+
     #[serde(deserialize_with = "aggsig::SecretKey::from_array_of_bytes")]
     voting_key: aggsig::SecretKey,
+
     port: u16,
     gossip: Vec<ValidatorInfo>,
+
+    stake: u64,
+    fault_mode: FaultMode,
 }
 
 /// Standalone Alpenglow node.
@@ -47,6 +76,11 @@ struct Args {
     /// Generates configs for a cluster from a file with IPs (one per line).
     #[arg(long)]
     generate_config_files: Option<String>,
+
+    /// Custom validator data to use in the simulation
+    #[arg(long)]
+    validators_file: Option<String>,
+
     /// Config file name to use.
     #[arg(long)]
     config_name: String,
@@ -61,7 +95,9 @@ async fn main() -> Result<()> {
     // parse args & load config from file
     let args = Args::parse();
     if let Some(ip_list) = args.generate_config_files {
-        create_node_configs(ip_list, args.config_name).await?;
+        let validators_file = args.validators_file.expect("--validators-file is required when generating config files");
+
+        create_node_configs(ip_list, validators_file, args.config_name).await?;
         return Ok(());
     }
     let mut config = File::open(&args.config_name).context("Config file is required")?;
@@ -117,6 +153,14 @@ type Node = Alpenglow<
 >;
 
 fn create_node(config: ConfigFile) -> Node {
+    // just a check to see if no Offline node was started
+    match config.fault_mode {
+        FaultMode::Offline => {
+            panic!("Offline mode should not be started!");
+        }
+        FaultMode::Honest | FaultMode::NoVote => {}
+    }
+
     // turn ConfigFile into an actual node
     let epoch_info = Arc::new(ValidatorEpochInfo::new(
         ValidatorId::new(config.id),
@@ -144,6 +188,7 @@ fn create_node(config: ConfigFile) -> Node {
 
 async fn create_node_configs(
     socket_list_filename: String,
+    validators_filename: String,
     config_base_filename: String,
 ) -> color_eyre::Result<()> {
     // prepare ValidatorInfo for all nodes
@@ -154,19 +199,26 @@ async fn create_node_configs(
     let mut validators = Vec::new();
     let mut socket_list =
         tokio::io::BufReader::new(tokio::fs::File::open(socket_list_filename).await?).lines();
+    let validators_string = tokio::fs::read_to_string(validators_filename).await?;
+    let validator_inputs: Vec<ValidatorInput> = serde_json::from_str(&validators_string)?;
     for id in 0.. {
         let Some(line) = socket_list.next_line().await? else {
             break;
         };
+
+        let input = &validator_inputs[id as usize];
+
         let sockaddr = line
             .parse::<SocketAddr>()
             .context("Can not parse socket list")?;
+
         sks.push(SecretKey::new(&mut rng));
         ports.push(sockaddr.port());
         voting_sks.push(aggsig::SecretKey::new(&mut rng));
+
         validators.push(ValidatorInfo {
-            id: ValidatorId::new(id),
-            stake: Stake::new(1),
+            id: ValidatorId::new(input.id),
+            stake: Stake::new(input.stake),
             pubkey: sks[id as usize].to_pk(),
             voting_pubkey: voting_sks[id as usize].to_pk(),
             all2all_address: sockaddr,
@@ -179,12 +231,17 @@ async fn create_node_configs(
     // write config files
     for id in 0..sks.len() as u64 {
         let mut file = tokio::fs::File::create(format!("{config_base_filename}_{id}.toml")).await?;
+
+        let input = &validator_inputs[id as usize];
+
         let conf = ConfigFile {
-            id,
+            id: input.id,
             port: ports[id as usize],
             identity_key: sks[id as usize].clone(),
             voting_key: voting_sks[id as usize].clone(),
             gossip: validators.clone(),
+            stake: input.stake,
+            fault_mode: input.fault_mode.clone(),
         };
 
         let serialized = toml::to_string(&conf)?;
