@@ -1,7 +1,6 @@
 // Copyright (c) Anza Technology, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-
 /*
 GORAN DEVETAK: this code was modified in order to put custom validator nodes in the simulation.
 Specifically now the configs accepts a custom stake, and a custom FaultMode, which specifies
@@ -22,7 +21,7 @@ use alpenglow::disseminator::Rotor;
 use alpenglow::disseminator::rotor::{IidQuorumSampler, StakeWeightedSampler};
 use alpenglow::network::UdpNetwork;
 use alpenglow::shredder::Shred;
-use alpenglow::{Stake, Transaction, ValidatorId, ValidatorInfo, logging};
+use alpenglow::{FaultMode, Stake, Transaction, ValidatorId, ValidatorInfo, logging};
 use clap::Parser;
 use color_eyre::Result;
 use color_eyre::eyre::Context;
@@ -37,21 +36,12 @@ use rand::rng;
 use serde::{Deserialize, Serialize};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt};
 
-
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct ValidatorInput {
     id: u64,
     pub_key: String,
     stake: u64,
     fault_mode: FaultMode,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-enum FaultMode {
-    Honest,
-    Offline,
-    NoVote,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -95,7 +85,9 @@ async fn main() -> Result<()> {
     // parse args & load config from file
     let args = Args::parse();
     if let Some(ip_list) = args.generate_config_files {
-        let validators_file = args.validators_file.expect("--validators-file is required when generating config files");
+        let validators_file = args
+            .validators_file
+            .expect("--validators-file is required when generating config files");
 
         create_node_configs(ip_list, validators_file, args.config_name).await?;
         return Ok(());
@@ -158,7 +150,7 @@ fn create_node(config: ConfigFile) -> Node {
         FaultMode::Offline => {
             panic!("Offline mode should not be started!");
         }
-        FaultMode::Honest | FaultMode::NoVote => {}
+        _ => {}
     }
 
     // turn ConfigFile into an actual node
@@ -183,6 +175,7 @@ fn create_node(config: ConfigFile) -> Node {
         repair_request_network,
         epoch_info,
         txs_receiver,
+        config.fault_mode,
     )
 }
 

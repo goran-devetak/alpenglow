@@ -51,7 +51,7 @@ use crate::network::{RepairNetwork, RepairRequestNetwork, TransactionNetwork};
 use crate::repair::{Repair, RepairRequestHandler};
 use crate::shredder::Shred;
 use crate::types::Fraction;
-use crate::{All2All, Disseminator, Slot, ValidatorInfo};
+use crate::{All2All, Disseminator, FaultMode, Slot, ValidatorInfo};
 
 /// Time bound assumed on network transmission delays during periods of synchrony.
 pub const DELTA: Duration = Duration::from_millis(250);
@@ -121,6 +121,9 @@ where
     cancel_token: CancellationToken,
     /// Votor task handle.
     votor_handle: tokio::task::JoinHandle<()>,
+
+    /// GORAN field for simulation
+    fault_mode: FaultMode,
 }
 
 impl<A, D, T> Alpenglow<A, D, T>
@@ -144,6 +147,7 @@ where
         repair_request_network: RR,
         epoch_info: Arc<ValidatorEpochInfo>,
         txs_receiver: T,
+        fault_mode: FaultMode,
     ) -> Self
     where
         RR: RepairRequestNetwork + 'static,
@@ -189,6 +193,7 @@ where
             pool_rx,
             blockstore_rx,
             all2all.clone(),
+            fault_mode.clone(),
         );
         let votor_handle = tokio::spawn(
             async move { votor.voting_loop().await.unwrap() }
@@ -218,6 +223,7 @@ where
             disseminator,
             cancel_token,
             votor_handle,
+            fault_mode,
         }
     }
 

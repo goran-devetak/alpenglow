@@ -15,7 +15,7 @@ use alpenglow::network::simulated::SimulatedNetworkCore;
 use alpenglow::network::{SimulatedNetwork, UdpNetwork, localhost_ip_sockaddr};
 use alpenglow::shredder::Shred;
 use alpenglow::types::Slot;
-use alpenglow::{Alpenglow, Stake, Transaction, ValidatorId, ValidatorInfo, logging};
+use alpenglow::{Alpenglow, FaultMode, Stake, Transaction, ValidatorId, ValidatorInfo, logging};
 use clap::Parser;
 use color_eyre::Result;
 use log::info;
@@ -163,6 +163,7 @@ async fn create_test_nodes(count: u64) -> Vec<TestNode> {
                 repair_request_network,
                 epoch_info,
                 txs_receiver,
+                FaultMode::Honest,
             )
         })
         .collect()

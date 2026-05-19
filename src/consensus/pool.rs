@@ -228,7 +228,10 @@ impl PoolImpl {
                 self.send_parent_ready_events(new_parents_ready).await;
             }
             Cert::FastFinal(ff_cert) => {
-                info!("fast finalized slot {slot} with block {}", ff_cert.block_hash().short_hex());
+                info!(
+                    "fast finalized slot {slot} with block {}",
+                    ff_cert.block_hash().short_hex()
+                );
                 let hash = ff_cert.block_hash().clone();
                 let finalization_event = self.finality_tracker.mark_fast_finalized(slot, hash);
                 self.handle_finalization(finalization_event).await;

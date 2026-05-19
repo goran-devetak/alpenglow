@@ -11,6 +11,7 @@ pub mod all2all;
 pub mod consensus;
 pub mod crypto;
 pub mod disseminator;
+mod fault_mode;
 pub mod logging;
 pub mod network;
 pub mod repair;
@@ -43,6 +44,8 @@ use crate::disseminator::rotor::{IidQuorumSampler, StakeWeightedSampler};
 use crate::network::{UdpNetwork, localhost_ip_sockaddr};
 use crate::repair::{RepairRequest, RepairResponse};
 use crate::shredder::Shred;
+
+pub use fault_mode::FaultMode;
 
 // NOTE: In many places we assume that `usize` is 64 bits wide.
 // So, for now, we only support 64-bit architectures.
@@ -169,6 +172,7 @@ pub fn create_test_nodes(count: u64) -> Vec<TestNode> {
                 repair_request_network,
                 epoch_info,
                 txs_receiver,
+                FaultMode::Honest,
             )
         })
         .collect()

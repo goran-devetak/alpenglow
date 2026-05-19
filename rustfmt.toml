@@ -1,6 +1,9 @@
 edition = "2024"
-unstable_features = true
+#unstable_features = true
 
-group_imports = "StdExternalCrate"
-imports_granularity = "Module"
+#group_imports = "StdExternalCrate"
+#imports_granularity = "Module"
 use_field_init_shorthand = true
+
+# the commented stuff is because otherwise it gives me a lot of warning when
+# building the nodes
