@@ -237,8 +237,18 @@ impl PoolImpl {
                 self.handle_finalization(finalization_event).await;
                 self.prune();
             }
+            // Goran TODO
             Cert::Final(_) => {
-                info!("slow finalized slot {slot}");
+                if let Some(block_hash) = self.get_notarized_block(slot) {
+                    info!(
+                        "slow finalized block {} in slot {}",
+                        block_hash.short_hex(),
+                        slot
+                    );
+                } else {
+                    info!("slow finalized slot {slot}");
+                }
+
                 let finalization_event = self.finality_tracker.mark_finalized(slot);
                 self.handle_finalization(finalization_event).await;
                 self.prune();
