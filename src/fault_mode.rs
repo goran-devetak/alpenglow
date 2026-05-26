@@ -1,10 +1,16 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum FaultMode {
     Honest,
     Offline,
-    NoVote,
-    Byzantine, // for now, it signs votes for conflicting blocks in the same slot
+    Byzantine(ByzantineMode),
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum ByzantineMode {
+    VoteForFakeBlock,
+    LeaderProducesConflictingBlocks,
 }

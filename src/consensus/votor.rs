@@ -141,7 +141,7 @@ impl<A: All2All> Votor<A> {
     /// Goran's helper function to just check if the node is byzantine
     fn is_byzantine(&self) -> bool {
         match self.fault_mode {
-            FaultMode::Byzantine => true,
+            FaultMode::Byzantine(_) => true,
             _ => false,
         }
     }
